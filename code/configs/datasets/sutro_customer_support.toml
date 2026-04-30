@@ -1,0 +1,45 @@
+slug = "sutro_customer_support"
+source = "sutro/synthetic-customer-support-dialogues-20k"
+hf_config = "default"
+hf_split = "train"
+sample_size = 100
+download_batch_size = 100
+conversation_id_prefix = "sutro_train"
+sample_file = "data/datasets/sutro_customer_support/raw/sutro_customer_support_sample_100.json"
+experience_cases_file = "{output_root}/processed/experience_cases.json"
+eval_cases_file = "{output_root}/processed/eval_cases.json"
+split_metadata_file = "{output_root}/processed/split_metadata.json"
+experience_case_count = 75
+eval_case_count = 25
+split_strategy = "first_n_experience_next_m_eval"
+experience_case_id_prefix = "experience"
+eval_case_id_prefix = "eval"
+past_conversation_field = "customer_support_dialogue"
+future_dialogue_field = "new_customer_support_dialogue"
+download_keep_columns = [
+  "product_name",
+  "product_description",
+  "customer_support_dialogue",
+  "issue_type",
+  "issue_severity",
+  "issue_description",
+  "resolution_path_description",
+  "outcome",
+  "customer_sentiment",
+  "customer_satisfaction",
+  "new_customer_support_dialogue"
+]
+
+[conversation]
+agent_speaker_labels = [
+  "customer support agent",
+  "support agent",
+  "agent"
+]
+customer_speaker_labels = [
+  "customer",
+  "client",
+  "user"
+]
+unknown_speaker_policy = "customer"
+unlabeled_turn_policy = "alternate_customer_first"

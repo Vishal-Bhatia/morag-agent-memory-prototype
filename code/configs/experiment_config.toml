@@ -1,0 +1,76 @@
+[dataset_config]
+default = "configs/datasets/sutro_customer_support.toml"
+
+[run]
+run_id = "latest"
+output_root = "data/runs/{dataset_slug}/{run_id}"
+
+[retrieval]
+top_k = 3
+raw_rag_unit = "whole_conversation"
+morag_unit = "approved_memory_note"
+raw_rag_record_id_prefix = "raw_rag"
+
+[vector_index]
+tfidf_ngram_min = 1
+tfidf_ngram_max = 2
+tfidf_max_features = 12000
+tfidf_backend_name = "sklearn_tfidf_nearest_neighbors"
+faiss_backend_name = "sentence_transformers_faiss"
+
+[morag]
+auto_approve_after_safety_review = true
+memory_status_before_review = "pending"
+memory_status_after_pass = "approved"
+memory_status_after_fail = "rejected"
+memory_id_prefix = "mem"
+safety_review_batch_size = 10
+dedup_similarity_threshold = 0.9
+dedup_scope_fields = ["memory_type"]
+default_review_days = 180
+short_review_days = 90
+
+[prompts]
+base_support_agent = "prompts/base_support_agent.md"
+no_memory_agent = "prompts/no_memory_agent.md"
+raw_rag_agent = "prompts/raw_rag_agent.md"
+morag_agent = "prompts/morag_agent.md"
+memory_extractor = "prompts/memory_extractor.md"
+memory_safety_reviewer = "prompts/memory_safety_reviewer.md"
+answer_judge = "prompts/answer_judge.md"
+retrieval_judge = "prompts/retrieval_judge.md"
+
+[evaluation]
+methods = ["no_memory", "raw_rag", "morag"]
+score_scale_min = 1
+score_scale_max = 5
+critical_failure_values = [0, 1]
+live_interaction_mode = "single_turn"
+future_query_source = "first_customer_turn_from_new_customer_support_dialogue"
+past_experience_source = "customer_support_dialogue"
+reference_metadata_fields = [
+  "issue_description",
+  "resolution_path_description",
+  "outcome",
+  "customer_sentiment",
+  "customer_satisfaction"
+]
+
+[outputs]
+raw_rag_records_file = "{output_root}/index/raw_rag_records.json"
+raw_rag_embeddings_file = "{output_root}/index/raw_rag_embeddings.npz"
+raw_rag_vectorizer_file = "{output_root}/index/raw_rag_vectorizer.pkl"
+raw_rag_vector_index_file = "{output_root}/index/raw_rag_vector_index.pkl"
+raw_rag_vector_metadata_file = "{output_root}/index/raw_rag_vector_metadata.json"
+morag_records_file = "{output_root}/index/morag_memory_records.json"
+morag_embeddings_file = "{output_root}/index/morag_embeddings.npz"
+morag_vectorizer_file = "{output_root}/index/morag_vectorizer.pkl"
+morag_vector_index_file = "{output_root}/index/morag_vector_index.pkl"
+morag_vector_metadata_file = "{output_root}/index/morag_vector_metadata.json"
+morag_candidates_file = "{output_root}/morag/memory_candidates.json"
+approved_memories_file = "{output_root}/morag/approved_memories.json"
+deduped_memories_file = "{output_root}/morag/deduped_memories.json"
+raw_rag_retrieval_preview_file = "{output_root}/results/raw_rag_retrieval_preview.json"
+morag_retrieval_preview_file = "{output_root}/results/morag_retrieval_preview.json"
+run_results_file = "{output_root}/results/run_results.json"
+judge_results_file = "{output_root}/results/judge_results.json"

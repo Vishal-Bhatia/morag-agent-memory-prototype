@@ -1,0 +1,7 @@
+openai
+numpy
+scikit-learn
+scipy
+sentence-transformers
+faiss-cpu
+tomli; python_version < "3.11"

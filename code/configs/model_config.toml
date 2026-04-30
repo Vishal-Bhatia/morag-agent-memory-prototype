@@ -1,0 +1,23 @@
+[models]
+answer_model = "gpt-5.4-nano"
+memory_extractor_model = "gpt-5.4-nano"
+safety_reviewer_model = "gpt-5.4-nano"
+judge_primary_model = "gpt-5.5"
+judge_secondary_model = "gpt-5.4"
+
+[generation]
+temperature = 0
+
+[embeddings]
+provider = "local"
+model = "sentence-transformers/all-MiniLM-L6-v2"
+
+[costing]
+token_ratio = 3
+usd_rate = 90
+tax_mult = 1.18
+
+[secrets]
+# Keep the actual API key out of config files.
+# Set this environment variable locally before running the pipeline.
+openai_api_key_env = "OPENAI_API_KEY"
