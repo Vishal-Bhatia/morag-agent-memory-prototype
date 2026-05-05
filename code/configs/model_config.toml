@@ -1,9 +1,11 @@
 [models]
 answer_model = "gpt-5.4-nano"
+reference_guidance_model = "gpt-5.4-nano"
 memory_extractor_model = "gpt-5.4-nano"
 safety_reviewer_model = "gpt-5.4-nano"
-judge_primary_model = "gpt-5.5"
-judge_secondary_model = "gpt-5.4"
+judge_primary_model = "gpt-5.4-nano"
+# Optional calibration judge. Leave blank to keep default runs cheap.
+judge_secondary_model = ""
 
 [generation]
 temperature = 0

@@ -7,8 +7,10 @@ output_root = "data/runs/{dataset_slug}/{run_id}"
 
 [retrieval]
 top_k = 3
-raw_rag_unit = "whole_conversation"
+reference_rag_unit = "category_subcategory_policy_guidance"
+raw_rag_unit = "past_conversation_fallback"
 morag_unit = "approved_memory_note"
+reference_rag_record_id_prefix = "ref_rag"
 raw_rag_record_id_prefix = "raw_rag"
 
 [vector_index]
@@ -17,6 +19,27 @@ tfidf_ngram_max = 2
 tfidf_max_features = 12000
 tfidf_backend_name = "sklearn_tfidf_nearest_neighbors"
 faiss_backend_name = "sentence_transformers_faiss"
+
+[pipeline]
+default_vector_backend = "auto"
+
+[pipeline.experiment_data]
+seed = 42
+max_pair_share = 0.15
+
+[pipeline.reference_layer]
+generate_reference_guidance = true
+build_reference_rag_store = true
+build_past_conversation_fallback_store = true
+reference_guidance_limit_pairs = 0
+reference_guidance_max_cases_per_document = 12
+
+[pipeline.morag_layer]
+generate_memory_candidates = true
+review_memory_candidates = true
+deduplicate_memories = true
+build_morag_store = true
+memory_candidate_limit = 0
 
 [morag]
 auto_approve_after_safety_review = true
@@ -34,14 +57,17 @@ short_review_days = 90
 base_support_agent = "prompts/base_support_agent.md"
 no_memory_agent = "prompts/no_memory_agent.md"
 raw_rag_agent = "prompts/raw_rag_agent.md"
+reference_rag_agent = "prompts/reference_rag_agent.md"
 morag_agent = "prompts/morag_agent.md"
+reference_guidance = "prompts/reference_guidance.md"
 memory_extractor = "prompts/memory_extractor.md"
 memory_safety_reviewer = "prompts/memory_safety_reviewer.md"
 answer_judge = "prompts/answer_judge.md"
 retrieval_judge = "prompts/retrieval_judge.md"
+retrieval_usefulness_judge = "prompts/retrieval_usefulness_judge.md"
 
 [evaluation]
-methods = ["no_memory", "raw_rag", "morag"]
+methods = ["no_memory", "reference_rag", "morag"]
 score_scale_min = 1
 score_scale_max = 5
 critical_failure_values = [0, 1]
@@ -57,6 +83,12 @@ reference_metadata_fields = [
 ]
 
 [outputs]
+reference_guidance_file = "{output_root}/reference_rag/reference_guidance_documents.json"
+reference_rag_records_file = "{output_root}/index/reference_rag_records.json"
+reference_rag_embeddings_file = "{output_root}/index/reference_rag_embeddings.npz"
+reference_rag_vectorizer_file = "{output_root}/index/reference_rag_vectorizer.pkl"
+reference_rag_vector_index_file = "{output_root}/index/reference_rag_vector_index.pkl"
+reference_rag_vector_metadata_file = "{output_root}/index/reference_rag_vector_metadata.json"
 raw_rag_records_file = "{output_root}/index/raw_rag_records.json"
 raw_rag_embeddings_file = "{output_root}/index/raw_rag_embeddings.npz"
 raw_rag_vectorizer_file = "{output_root}/index/raw_rag_vectorizer.pkl"
@@ -71,6 +103,8 @@ morag_candidates_file = "{output_root}/morag/memory_candidates.json"
 approved_memories_file = "{output_root}/morag/approved_memories.json"
 deduped_memories_file = "{output_root}/morag/deduped_memories.json"
 raw_rag_retrieval_preview_file = "{output_root}/results/raw_rag_retrieval_preview.json"
+reference_rag_retrieval_preview_file = "{output_root}/results/reference_rag_retrieval_preview.json"
 morag_retrieval_preview_file = "{output_root}/results/morag_retrieval_preview.json"
 run_results_file = "{output_root}/results/run_results.json"
 judge_results_file = "{output_root}/results/judge_results.json"
+retrieval_usefulness_results_file = "{output_root}/results/retrieval_usefulness_results.json"

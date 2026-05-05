@@ -2,8 +2,9 @@ r"""Preview retrieval for a configured record store.
 
 Run from the code/ directory:
 
-    python .\scripts\preview_retrieval.py --store raw_rag
-    python .\scripts\preview_retrieval.py --store morag
+    python -m scripts.eval.preview_retrieval --store reference_rag
+    python -m scripts.eval.preview_retrieval --store raw_rag
+    python -m scripts.eval.preview_retrieval --store morag
 """
 
 from __future__ import annotations
@@ -38,6 +39,19 @@ def format_raw_rag_record(record: dict[str, Any], rank: int, score: float) -> di
     }
 
 
+def format_reference_rag_record(record: dict[str, Any], rank: int, score: float) -> dict[str, Any]:
+    metadata = record["metadata"]
+    return {
+        "rank": rank,
+        "score": score,
+        "record_id": record["record_id"],
+        "product_category": metadata.get("product_category"),
+        "product_subcategory": metadata.get("product_subcategory"),
+        "source_case_count": metadata.get("source_case_count"),
+        "guidance": record["display_text"],
+    }
+
+
 def format_morag_record(record: dict[str, Any], rank: int, score: float) -> dict[str, Any]:
     metadata = record["metadata"]
     return {
@@ -54,6 +68,8 @@ def format_morag_record(record: dict[str, Any], rank: int, score: float) -> dict
 
 
 def format_retrieved_record(store: str) -> Any:
+    if store == "reference_rag":
+        return format_reference_rag_record
     if store == "raw_rag":
         return format_raw_rag_record
     if store == "morag":
@@ -62,6 +78,8 @@ def format_retrieved_record(store: str) -> Any:
 
 
 def preview_item_key(store: str) -> str:
+    if store == "reference_rag":
+        return "retrieved_guidance"
     if store == "raw_rag":
         return "retrieved_records"
     if store == "morag":
@@ -73,6 +91,8 @@ def preview_output_path(config: dict[str, Any], store: str, override: pathlib.Pa
     if override is not None:
         return override
     outputs = config["outputs"]
+    if store == "reference_rag":
+        return pathlib.Path(outputs["reference_rag_retrieval_preview_file"])
     if store == "raw_rag":
         return pathlib.Path(outputs["raw_rag_retrieval_preview_file"])
     if store == "morag":
@@ -116,7 +136,13 @@ def print_preview(previews: list[dict[str, Any]], store: str, max_cases: int) ->
         print(f"{item['eval_case_id']}: {item['future_query']}")
         print(f"Expected: {item['expected_resolution_pattern']}")
         for record in item[item_key]:
-            if store == "raw_rag":
+            if store == "reference_rag":
+                print(
+                    f"  {record['rank']}. {record['record_id']} "
+                    f"score={record['score']:.4f} "
+                    f"pair={record['product_category']}/{record['product_subcategory']}"
+                )
+            elif store == "raw_rag":
                 print(
                     f"  {record['rank']}. {record['record_id']} "
                     f"score={record['score']:.4f} "

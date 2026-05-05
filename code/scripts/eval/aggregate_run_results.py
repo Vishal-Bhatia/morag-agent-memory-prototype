@@ -87,14 +87,49 @@ def flatten_retrieval_summary(
     return rows
 
 
+def flatten_retrieval_usefulness_summary(
+    result: dict[str, Any],
+    source_file: pathlib.Path,
+    runs_root: pathlib.Path,
+) -> list[dict[str, Any]]:
+    run = result.get("run") or infer_run_from_path(source_file, runs_root)
+    rows: list[dict[str, Any]] = []
+    for judge_model, methods in result.get("retrieval_usefulness_summary", {}).items():
+        for method, metrics in methods.items():
+            rows.append(
+                {
+                    "summary_type": "retrieval_usefulness",
+                    "source_file": str(source_file),
+                    "dataset_slug": run.get("dataset_slug"),
+                    "dataset_source": run.get("dataset_source"),
+                    "run_id": run.get("run_id"),
+                    "output_root": run.get("output_root"),
+                    "judge_model": judge_model,
+                    "method": method,
+                    **metrics,
+                }
+            )
+    return rows
+
+
 def aggregate_runs(runs_root: pathlib.Path) -> dict[str, Any]:
-    judge_files = sorted(runs_root.glob("*/**/results/judge_results.json"))
+    judge_files = sorted(runs_root.glob("*/**/results/*.json"))
     answer_rows: list[dict[str, Any]] = []
     retrieval_rows: list[dict[str, Any]] = []
+    retrieval_usefulness_rows: list[dict[str, Any]] = []
     run_index: list[dict[str, Any]] = []
 
     for judge_file in judge_files:
         result = load_json(judge_file)
+        if not any(
+            key in result
+            for key in (
+                "answer_summary",
+                "retrieval_summary",
+                "retrieval_usefulness_summary",
+            )
+        ):
+            continue
         run = result.get("run") or infer_run_from_path(judge_file, runs_root)
         run_index.append(
             {
@@ -102,22 +137,35 @@ def aggregate_runs(runs_root: pathlib.Path) -> dict[str, Any]:
                 "judge_results_file": str(judge_file),
                 "answer_judgment_count": result.get("answer_judgment_count", 0),
                 "retrieval_judgment_count": result.get("retrieval_judgment_count", 0),
+                "retrieval_usefulness_judgment_count": result.get(
+                    "retrieval_usefulness_judgment_count",
+                    0,
+                ),
                 "judge_models": result.get("judge_models", []),
                 "answer_usage_totals": result.get("answer_usage_totals", {}),
                 "retrieval_usage_totals": result.get("retrieval_usage_totals", {}),
+                "retrieval_usefulness_usage_totals": result.get(
+                    "retrieval_usefulness_usage_totals",
+                    {},
+                ),
             }
         )
         answer_rows.extend(flatten_answer_summary(result, judge_file, runs_root))
         retrieval_rows.extend(flatten_retrieval_summary(result, judge_file, runs_root))
+        retrieval_usefulness_rows.extend(
+            flatten_retrieval_usefulness_summary(result, judge_file, runs_root)
+        )
 
     return {
         "runs_root": str(runs_root),
         "run_count": len(run_index),
         "answer_summary_row_count": len(answer_rows),
         "retrieval_summary_row_count": len(retrieval_rows),
+        "retrieval_usefulness_summary_row_count": len(retrieval_usefulness_rows),
         "runs": run_index,
         "answer_summary_rows": answer_rows,
         "retrieval_summary_rows": retrieval_rows,
+        "retrieval_usefulness_summary_rows": retrieval_usefulness_rows,
     }
 
 
@@ -132,6 +180,10 @@ def main() -> None:
     print(f"Aggregated {output['run_count']} runs")
     print(f"Answer summary rows: {output['answer_summary_row_count']}")
     print(f"Retrieval summary rows: {output['retrieval_summary_row_count']}")
+    print(
+        "Retrieval usefulness summary rows: "
+        f"{output['retrieval_usefulness_summary_row_count']}"
+    )
     print(f"Wrote aggregate results to {args.output}")
 
 

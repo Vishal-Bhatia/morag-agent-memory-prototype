@@ -25,8 +25,16 @@ from scripts.common.vector_index_utils import build_vector_index
 
 
 STORE_OUTPUT_KEYS = {
+    "reference_rag": {
+        "label": "reference RAG",
+        "records": "reference_rag_records_file",
+        "embeddings": "reference_rag_embeddings_file",
+        "vectorizer": "reference_rag_vectorizer_file",
+        "index": "reference_rag_vector_index_file",
+        "metadata": "reference_rag_vector_metadata_file",
+    },
     "raw_rag": {
-        "label": "raw RAG",
+        "label": "past-conversation fallback RAG",
         "records": "raw_rag_records_file",
         "embeddings": "raw_rag_embeddings_file",
         "vectorizer": "raw_rag_vectorizer_file",

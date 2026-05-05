@@ -1,5 +1,9 @@
 r"""Run the moRAG memory-build pipeline.
 
+Prefer the newer high-level entry point:
+
+    python -m scripts.pipelines.build_morag_layer
+
 This is a convenience orchestrator for the full memory path:
 
     generate candidates -> safety review -> deduplicate -> build moRAG store

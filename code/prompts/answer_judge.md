@@ -102,7 +102,7 @@ Output schema:
 ```json
 {
   "query_id": "string",
-  "method": "no_memory | raw_rag | morag",
+  "method": "no_memory | reference_rag | morag",
   "judge_model": "string",
   "relevance": 1,
   "specificity": 1,

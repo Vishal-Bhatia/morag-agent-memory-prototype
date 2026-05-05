@@ -37,6 +37,12 @@ ANSWER_SCORE_FIELDS = (
     "overall_score",
 )
 RETRIEVAL_SCORE_FIELDS = ("hit_rate", "retrieval_quality", "memory_pollution_present")
+RETRIEVAL_USEFULNESS_SCORE_FIELDS = ("context_usefulness", "context_specificity")
+RETRIEVAL_USEFULNESS_BINARY_FIELDS = (
+    "exact_answer_present",
+    "noise_present",
+    "misleading_context_present",
+)
 
 
 def compact_context(result: dict[str, Any]) -> str:
@@ -123,6 +129,27 @@ def normalize_retrieval_judgment(
     return normalized
 
 
+def normalize_retrieval_usefulness_judgment(
+    payload: dict[str, Any],
+    result: dict[str, Any],
+    judge_model: str,
+    usage: dict[str, Any],
+) -> dict[str, Any]:
+    normalized = {
+        "query_id": result["case_id"],
+        "method": result["method"],
+        "judge_model": judge_model,
+        "source_conversation_id": result["source_conversation_id"],
+    }
+    for key in RETRIEVAL_USEFULNESS_SCORE_FIELDS:
+        normalized[key] = max(1, min(5, coerce_int(payload, key, 1)))
+    for key in RETRIEVAL_USEFULNESS_BINARY_FIELDS:
+        normalized[key] = 1 if coerce_int(payload, key, 0) else 0
+    normalized["rationale"] = str(payload.get("rationale", "")).strip()
+    normalized["usage"] = usage
+    return normalized
+
+
 def summarize_usage(items: list[dict[str, Any]]) -> dict[str, int]:
     totals: dict[str, int] = {}
     for item in items:
@@ -172,13 +199,43 @@ def summarize_retrieval_judgments(items: list[dict[str, Any]]) -> dict[str, Any]
     return summary
 
 
+def summarize_retrieval_usefulness_judgments(items: list[dict[str, Any]]) -> dict[str, Any]:
+    groups: dict[str, list[dict[str, Any]]] = {}
+    for item in items:
+        key = f"{item['judge_model']}::{item['method']}"
+        groups.setdefault(key, []).append(item)
+
+    summary: dict[str, Any] = {}
+    for key, rows in groups.items():
+        judge_model, method = key.split("::", maxsplit=1)
+        summary.setdefault(judge_model, {})[method] = {
+            "context_usefulness": mean([row["context_usefulness"] for row in rows]),
+            "context_specificity": mean([row["context_specificity"] for row in rows]),
+            "exact_answer_rate": mean([row["exact_answer_present"] for row in rows]),
+            "noise_rate": mean([row["noise_present"] for row in rows]),
+            "misleading_context_rate": mean([row["misleading_context_present"] for row in rows]),
+            "count": len(rows),
+        }
+    return summary
+
+
 def parse_judge_models(value: str | None, model_config: dict[str, Any]) -> list[str]:
+    def unique_nonempty(models: list[str]) -> list[str]:
+        output: list[str] = []
+        for model in models:
+            clean = str(model).strip()
+            if clean and clean not in output:
+                output.append(clean)
+        return output
+
     if value:
-        return [model.strip() for model in value.split(",") if model.strip()]
-    return [
-        model_config["models"]["judge_primary_model"],
-        model_config["models"]["judge_secondary_model"],
-    ]
+        return unique_nonempty(value.split(","))
+    return unique_nonempty(
+        [
+            model_config["models"].get("judge_primary_model", ""),
+            model_config["models"].get("judge_secondary_model", ""),
+        ]
+    )
 
 
 def main() -> None:
@@ -188,7 +245,10 @@ def main() -> None:
     parser.add_argument("--output", type=pathlib.Path)
     parser.add_argument("--judge-models")
     parser.add_argument("--limit", type=int)
+    parser.add_argument("--skip-answer", action="store_true")
     parser.add_argument("--skip-retrieval", action="store_true")
+    parser.add_argument("--skip-exact-retrieval", action="store_true")
+    parser.add_argument("--skip-usefulness-retrieval", action="store_true")
     args = parser.parse_args()
 
     config, model_config = load_experiment_and_model_configs(
@@ -215,31 +275,38 @@ def main() -> None:
 
     answer_template = load_prompt(pathlib.Path(config["prompts"]["answer_judge"]))
     retrieval_template = load_prompt(pathlib.Path(config["prompts"]["retrieval_judge"]))
+    retrieval_usefulness_template = load_prompt(
+        pathlib.Path(config["prompts"]["retrieval_usefulness_judge"])
+    )
     client = openai_client_from_config(model_config)
 
     answer_judgments: list[dict[str, Any]] = []
     retrieval_judgments: list[dict[str, Any]] = []
-    total_answer_calls = len(run_results) * len(judge_models)
-    answer_call = 0
-
-    for judge_model in judge_models:
-        for result in run_results:
-            answer_call += 1
-            print(f"[answer {answer_call}/{total_answer_calls}] {judge_model} {result['method']} {result['case_id']}")
-            payload, usage = call_json_model(
-                client=client,
-                model=judge_model,
-                prompt=build_answer_prompt(answer_template, result, judge_model),
-                temperature=temperature,
-            )
-            answer_judgments.append(
-                normalize_answer_judgment(payload, result, judge_model, usage)
-            )
+    retrieval_usefulness_judgments: list[dict[str, Any]] = []
+    if not args.skip_answer:
+        total_answer_calls = len(run_results) * len(judge_models)
+        answer_call = 0
+        for judge_model in judge_models:
+            for result in run_results:
+                answer_call += 1
+                print(
+                    f"[answer {answer_call}/{total_answer_calls}] "
+                    f"{judge_model} {result['method']} {result['case_id']}"
+                )
+                payload, usage = call_json_model(
+                    client=client,
+                    model=judge_model,
+                    prompt=build_answer_prompt(answer_template, result, judge_model),
+                    temperature=temperature,
+                )
+                answer_judgments.append(
+                    normalize_answer_judgment(payload, result, judge_model, usage)
+                )
 
     retrieval_candidates = [
-        result for result in run_results if result["method"] in {"raw_rag", "morag"}
+        result for result in run_results if result["method"] in {"reference_rag", "morag"}
     ]
-    if not args.skip_retrieval:
+    if not args.skip_retrieval and not args.skip_exact_retrieval:
         total_retrieval_calls = len(retrieval_candidates) * len(judge_models)
         retrieval_call = 0
         for judge_model in judge_models:
@@ -259,26 +326,68 @@ def main() -> None:
                     normalize_retrieval_judgment(payload, result, judge_model, usage)
                 )
 
+    if not args.skip_retrieval and not args.skip_usefulness_retrieval:
+        total_usefulness_calls = len(retrieval_candidates) * len(judge_models)
+        usefulness_call = 0
+        for judge_model in judge_models:
+            for result in retrieval_candidates:
+                usefulness_call += 1
+                print(
+                    f"[retrieval-usefulness {usefulness_call}/{total_usefulness_calls}] "
+                    f"{judge_model} {result['method']} {result['case_id']}"
+                )
+                payload, usage = call_json_model(
+                    client=client,
+                    model=judge_model,
+                    prompt=build_retrieval_prompt(
+                        retrieval_usefulness_template,
+                        result,
+                        judge_model,
+                    ),
+                    temperature=temperature,
+                )
+                retrieval_usefulness_judgments.append(
+                    normalize_retrieval_usefulness_judgment(
+                        payload,
+                        result,
+                        judge_model,
+                        usage,
+                    )
+                )
+
     output = {
         "run": run_metadata(config),
         "source_file": str(input_path),
         "judge_models": judge_models,
         "answer_judgment_count": len(answer_judgments),
         "retrieval_judgment_count": len(retrieval_judgments),
+        "retrieval_usefulness_judgment_count": len(retrieval_usefulness_judgments),
         "answer_usage_totals": summarize_usage(answer_judgments),
         "retrieval_usage_totals": summarize_usage(retrieval_judgments),
+        "retrieval_usefulness_usage_totals": summarize_usage(
+            retrieval_usefulness_judgments
+        ),
         "answer_summary": summarize_answer_judgments(answer_judgments),
         "retrieval_summary": summarize_retrieval_judgments(retrieval_judgments),
+        "retrieval_usefulness_summary": summarize_retrieval_usefulness_judgments(
+            retrieval_usefulness_judgments
+        ),
         "answer_judgments": answer_judgments,
         "retrieval_judgments": retrieval_judgments,
+        "retrieval_usefulness_judgments": retrieval_usefulness_judgments,
     }
     write_json(output_path, output)
 
     print(f"Wrote judge results to {output_path}")
     print(f"Answer judgments: {len(answer_judgments)}")
     print(f"Retrieval judgments: {len(retrieval_judgments)}")
+    print(f"Retrieval usefulness judgments: {len(retrieval_usefulness_judgments)}")
     print(f"Answer usage totals: {output['answer_usage_totals']}")
     print(f"Retrieval usage totals: {output['retrieval_usage_totals']}")
+    print(
+        "Retrieval usefulness usage totals: "
+        f"{output['retrieval_usefulness_usage_totals']}"
+    )
 
 
 if __name__ == "__main__":

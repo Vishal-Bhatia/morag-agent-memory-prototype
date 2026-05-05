@@ -17,20 +17,22 @@ Reason for selection:
 
 ## Evaluation Setup
 
-Compare three methods:
+Compare three primary methods:
 
 1. No memory
    - Answer using only the current future query.
 
-2. Raw conversation RAG
-   - Retrieve relevant raw dialogue chunks or conversations.
-   - Generate an answer using the retrieved raw context.
+2. Reference RAG
+   - Retrieve broad, policy-like support guidance.
+   - Generate an answer using the retrieved reference context.
 
 3. moRAG
    - Extract structured memory candidates from prior conversations.
    - Approve/edit/reject candidates.
    - Retrieve only approved memory notes.
    - Generate an answer using the retrieved approved memories.
+
+The past-conversation store is retained as a future fallback source, not as the main comparison arm in the current run.
 
 ## Memory Safety Policy
 
@@ -240,25 +242,28 @@ Scoring guidance:
 
 ## Retrieval Metrics
 
-### moRAG Hit Rate
+### Strict Retrieval Hit Rate
 
-Measures whether moRAG retrieval returns at least one expected relevant approved memory for a future query.
+Measures whether retrieval returns at least one item containing the expected resolution pattern or a near-exact handling note for a future query.
 
 Report as:
 
 - `1`: at least one expected relevant memory retrieved
 - `0`: no expected relevant memory retrieved
 
-### Raw RAG Hit Rate
+### Retrieval Usefulness
 
-Measures whether raw conversation RAG returns at least one expected relevant raw dialogue chunk or conversation for a future query.
+Measures whether retrieved context is useful even when it does not contain the exact expected answer.
 
-Report as:
+Recommended fields:
 
-- `1`: at least one expected relevant raw item retrieved
-- `0`: no expected relevant raw item retrieved
+- `context_usefulness`: 1-5
+- `context_specificity`: 1-5
+- `exact_answer_present`: 0/1
+- `noise_present`: 0/1
+- `misleading_context_present`: 0/1
 
-### Retrieval Quality
+### Strict Retrieval Quality
 
 Measures the usefulness of retrieved items, separate from simple hit rate.
 
@@ -329,19 +334,19 @@ Recommended logging:
 
 ## LLM-as-Judge Setup
 
-Use two judge models:
+Default judge setup:
 
-- Primary judge: `gpt-5.5`
-- Secondary judge: `gpt-5.4`
+- Primary judge: `gpt-5.4-nano`
+- Optional calibration judge: pass explicitly via `--judge-models`
 
-Judge response quality and retrieval quality separately.
+Judge response quality, strict retrieval quality, and broader retrieval usefulness separately.
 
 Recommended judge output schema:
 
 ```json
 {
   "query_id": "string",
-  "method": "no_memory | raw_rag | morag",
+  "method": "no_memory | reference_rag | morag",
   "judge_model": "string",
   "relevance": 1,
   "specificity": 1,
@@ -369,10 +374,10 @@ For the GitHub README and LinkedIn post, lead with:
 
 Avoid large claims such as "moRAG beats RAG."
 
-Preferred claim:
+Current preferred claim:
 
 ```text
-In support-style workflows, approved atomic memory notes can produce more precise, auditable future answers than raw chat-history retrieval.
+In support-style workflows, approved atomic memory notes may provide a compact operational layer over broad reference RAG, improving answer specificity and reducing answer-time context cost when support patterns repeat.
 ```
 
 ## Cost and Latency Hypothesis

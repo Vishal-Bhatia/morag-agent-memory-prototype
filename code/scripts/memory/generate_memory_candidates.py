@@ -69,6 +69,7 @@ def normalize_candidate(
     candidate: dict[str, Any],
     source_conversation_id: str,
     case_id: str,
+    case_metadata: dict[str, Any],
     ordinal: int,
     memory_id_prefix: str,
     run_date: date,
@@ -80,6 +81,10 @@ def normalize_candidate(
         normalized["model_memory_id"] = model_memory_id
     normalized["source_conversation_id"] = source_conversation_id
     normalized["source_case_id"] = case_id
+    normalized["product_category"] = case_metadata.get("product_category")
+    normalized["product_subcategory"] = case_metadata.get("product_subcategory")
+    normalized["issue_type"] = case_metadata.get("issue_type")
+    normalized["issue_severity"] = case_metadata.get("issue_severity")
     normalized["memory_id"] = f"{memory_id_prefix}_{case_id}_{ordinal:02d}"
     normalized.setdefault("status", "pending")
     normalized.setdefault("retrieval_tags", [])
@@ -122,6 +127,7 @@ def generate_for_case(
             candidate=candidate,
             source_conversation_id=case["source_conversation_id"],
             case_id=case["case_id"],
+            case_metadata=case["metadata"],
             ordinal=index + 1,
             memory_id_prefix=memory_id_prefix,
             run_date=run_date,

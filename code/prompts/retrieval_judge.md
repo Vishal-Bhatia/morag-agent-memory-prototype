@@ -84,7 +84,7 @@ Output schema:
 ```json
 {
   "query_id": "string",
-  "method": "raw_rag | morag",
+  "method": "reference_rag | morag",
   "judge_model": "string",
   "hit_rate": 0,
   "retrieval_quality": 1,

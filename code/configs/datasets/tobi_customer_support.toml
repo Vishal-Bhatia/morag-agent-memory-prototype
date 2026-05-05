@@ -1,0 +1,34 @@
+# Dataset license note:
+# Tobi-Bueck/customer-support-tickets is licensed under CC-BY-NC-4.0.
+# Use this dataset config for research/prototype runs only. Commercial users
+# should use their own appropriately licensed support-ticket data.
+
+slug = "tobi_customer_support"
+source = "Tobi-Bueck/customer-support-tickets"
+hf_config = "default"
+hf_split = "train"
+sample_size = 61765
+download_batch_size = 100
+conversation_id_prefix = "tobi_train"
+raw_parquet_file = "../../datasets/tobi_customer_support/raw/tobi_customer_support_train_raw.parquet"
+raw_csv_file = "../../datasets/tobi_customer_support/raw/tobi_customer_support_train_raw.csv"
+sample_file = "../../datasets/tobi_customer_support/raw/tobi_customer_support_train_raw.json"
+
+download_keep_columns = [
+  "subject",
+  "body",
+  "answer",
+  "type",
+  "queue",
+  "priority",
+  "language",
+  "version",
+  "tag_1",
+  "tag_2",
+  "tag_3",
+  "tag_4",
+  "tag_5",
+  "tag_6",
+  "tag_7",
+  "tag_8"
+]

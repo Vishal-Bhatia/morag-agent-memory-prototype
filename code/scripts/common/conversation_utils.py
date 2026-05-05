@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import re
 from typing import Any
 
@@ -83,15 +84,52 @@ def classify_speaker(
     raise ValueError(f"Unsupported unlabeled_turn_policy: {unlabeled_policy}")
 
 
+def coerce_dialogue_turns(dialogue: Any) -> list[str]:
+    if isinstance(dialogue, list):
+        return [str(item) for item in dialogue]
+    if isinstance(dialogue, tuple):
+        return [str(item) for item in dialogue]
+
+    text = str(dialogue).strip()
+    if not text:
+        return []
+
+    try:
+        parsed = ast.literal_eval(text)
+        if isinstance(parsed, (list, tuple)):
+            if len(parsed) > 1 or "\n" not in text:
+                return [str(item) for item in parsed]
+    except (SyntaxError, ValueError):
+        pass
+
+    if text.startswith("[") and text.endswith("]"):
+        line_items = []
+        for line in text[1:-1].splitlines():
+            item = line.strip().rstrip(",").strip()
+            if len(item) >= 2 and item[0] == item[-1] and item[0] in {"'", '"'}:
+                line_items.append(item[1:-1])
+        if line_items:
+            return [item.replace("\\n", "\n") for item in line_items]
+
+        quoted_items = [
+            match.group(2)
+            for match in re.finditer(r"(['\"])(.*?)(?<!\\)\1", text, flags=re.DOTALL)
+        ]
+        if quoted_items:
+            return [item.replace("\\n", "\n") for item in quoted_items]
+
+    return [line.strip() for line in text.splitlines() if line.strip()]
+
+
 def normalize_turns(
-    dialogue: list[str],
+    dialogue: Any,
     config: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     turns: list[dict[str, Any]] = []
     customer_count = 0
     agent_count = 0
 
-    for index, raw_text in enumerate(dialogue):
+    for index, raw_text in enumerate(coerce_dialogue_turns(dialogue)):
         source_label, clean_text = strip_speaker_prefix(raw_text)
         speaker = classify_speaker(source_label, index, config)
 

@@ -17,6 +17,9 @@ from scripts.common.morag_utils import load_json, write_json
 
 def build_search_text(memory: dict[str, Any]) -> str:
     fields = [
+        ("Product category", memory.get("product_category")),
+        ("Product subcategory", memory.get("product_subcategory")),
+        ("Issue type", memory.get("issue_type")),
         ("Memory type", memory.get("memory_type")),
         ("Note", memory.get("note")),
         ("Evidence", memory.get("evidence_excerpt")),
@@ -36,6 +39,10 @@ def build_record(memory: dict[str, Any], ordinal: int, retrieval_unit: str) -> d
         "search_text": build_search_text(memory),
         "display_text": memory["note"],
         "metadata": {
+            "product_category": memory.get("product_category"),
+            "product_subcategory": memory.get("product_subcategory"),
+            "issue_type": memory.get("issue_type"),
+            "issue_severity": memory.get("issue_severity"),
             "memory_type": memory.get("memory_type"),
             "confidence": memory.get("confidence"),
             "expires_on": memory.get("expires_on"),

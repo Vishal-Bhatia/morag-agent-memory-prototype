@@ -1,4 +1,4 @@
-r"""Run support-agent answers for no-memory, raw RAG, and moRAG.
+r"""Run support-agent answers for no-memory, reference RAG, and moRAG.
 
 Run from the code/ directory:
 
@@ -57,6 +57,20 @@ def format_raw_retrieval(record: dict[str, Any], rank: int, score: float) -> dic
     }
 
 
+def format_reference_retrieval(record: dict[str, Any], rank: int, score: float) -> dict[str, Any]:
+    metadata = record["metadata"]
+    return {
+        "rank": rank,
+        "score": score,
+        "record_id": record["record_id"],
+        "product_category": metadata.get("product_category"),
+        "product_subcategory": metadata.get("product_subcategory"),
+        "source_case_count": metadata.get("source_case_count"),
+        "source_case_ids": metadata.get("source_case_ids", []),
+        "guidance": record["display_text"],
+    }
+
+
 def format_morag_retrieval(record: dict[str, Any], rank: int, score: float) -> dict[str, Any]:
     metadata = record["metadata"]
     return {
@@ -89,6 +103,29 @@ def render_raw_context(retrieved_records: list[dict[str, Any]]) -> str:
                     f"resolution_path: {item.get('resolution_path_description')}",
                     "turns:",
                     item["conversation"],
+                ]
+            )
+        )
+    return "\n\n---\n\n".join(blocks)
+
+
+def render_reference_context(retrieved_records: list[dict[str, Any]]) -> str:
+    if not retrieved_records:
+        return "None."
+
+    blocks = []
+    for item in retrieved_records:
+        blocks.append(
+            "\n".join(
+                [
+                    f"Retrieved reference guidance {item['rank']}",
+                    f"score: {item['score']:.4f}",
+                    f"record_id: {item['record_id']}",
+                    f"product_category: {item.get('product_category')}",
+                    f"product_subcategory: {item.get('product_subcategory')}",
+                    f"source_case_count: {item.get('source_case_count')}",
+                    "guidance:",
+                    item["guidance"],
                 ]
             )
         )
@@ -156,6 +193,19 @@ def retrieve_for_method(
         )
         return render_raw_context(retrieved), retrieved
 
+    if method == "reference_rag":
+        retrieved = retrieve_records(
+            query=query,
+            records=stores["reference_records"],
+            vector_metadata=stores["reference_metadata"],
+            vector_config=stores["reference_metadata"]["vector_config"],
+            embedding_model=model_config["embeddings"]["model"],
+            top_k=top_k,
+            formatter=format_reference_retrieval,
+            faiss_backend=stores.get("reference_faiss_backend"),
+        )
+        return render_reference_context(retrieved), retrieved
+
     if method == "morag":
         retrieved = retrieve_records(
             query=query,
@@ -187,6 +237,17 @@ def load_retrieval_stores(
         if stores["raw_metadata"]["backend"] == vector_config["faiss_backend_name"]:
             stores["raw_faiss_backend"] = load_faiss_backend(
                 vector_metadata=stores["raw_metadata"],
+                embedding_model=model_config["embeddings"]["model"],
+            )
+
+    if "reference_rag" in methods:
+        stores["reference_records"] = load_json(pathlib.Path(outputs["reference_rag_records_file"]))
+        stores["reference_metadata"] = load_json(
+            pathlib.Path(outputs["reference_rag_vector_metadata_file"])
+        )
+        if stores["reference_metadata"]["backend"] == vector_config["faiss_backend_name"]:
+            stores["reference_faiss_backend"] = load_faiss_backend(
+                vector_metadata=stores["reference_metadata"],
                 embedding_model=model_config["embeddings"]["model"],
             )
 
@@ -286,6 +347,7 @@ def main() -> None:
     method_prompts = {
         "no_memory": load_prompt(pathlib.Path(prompt_paths["no_memory_agent"])),
         "raw_rag": load_prompt(pathlib.Path(prompt_paths["raw_rag_agent"])),
+        "reference_rag": load_prompt(pathlib.Path(prompt_paths["reference_rag_agent"])),
         "morag": load_prompt(pathlib.Path(prompt_paths["morag_agent"])),
     }
 

@@ -6,8 +6,9 @@ for debugging each stage independently.
 
 Run from the code/ directory:
 
-    python .\scripts\build_store.py --store raw_rag --force-backend faiss
-    python .\scripts\build_store.py --store morag --force-backend faiss
+    python -m scripts.stores.build_store --store reference_rag --force-backend faiss
+    python -m scripts.stores.build_store --store raw_rag --force-backend faiss
+    python -m scripts.stores.build_store --store morag --force-backend faiss
 """
 
 from __future__ import annotations
@@ -18,6 +19,7 @@ from typing import Any
 
 from scripts.common.cli_config import add_config_args, load_experiment_and_model_configs
 from scripts.stores.build_morag_memory_records import build_morag_memory_records
+from scripts.stores.build_reference_rag_records import build_reference_rag_records
 from scripts.stores.build_raw_rag_records import build_raw_rag_records
 from scripts.stores.build_vector_index import STORE_OUTPUT_KEYS, build_store_vector_index, output_path
 
@@ -28,6 +30,12 @@ def build_records_for_store(
     input_path: pathlib.Path | None = None,
     output_records_path: pathlib.Path | None = None,
 ) -> list[dict[str, Any]]:
+    if store == "reference_rag":
+        return build_reference_rag_records(
+            config=config,
+            input_path=input_path,
+            output_path=output_records_path,
+        )
     if store == "raw_rag":
         return build_raw_rag_records(
             config=config,
